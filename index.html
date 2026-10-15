@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="kk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#173f3a" />
+    <meta name="description" content="Қазақ тіліндегі дауыстап оқу қарқынын сөз/минутпен өлшейтін мобильді құрал." />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Оқу қарқыны" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icons/icon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+    <title>Оқу қарқыны — қазақша оқу жылдамдығы</title>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="#top" aria-label="Оқу қарқыны — басына өту">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 44 44" role="img"><path d="M9 10.5c5.1 0 9.4 1.8 13 5.1 3.6-3.3 7.9-5.1 13-5.1v23c-5.1 0-9.4 1.7-13 5-3.6-3.3-7.9-5-13-5v-23Z"/><path d="M22 15.6v22.5"/><path class="sound" d="M28.5 20.2c2.3 1.2 3.7 3.2 3.7 5.8s-1.4 4.6-3.7 5.8"/></svg>
+          </span>
+          <span>Оқу қарқыны</span>
+        </a>
+        <div class="header-actions">
+          <button id="installButton" class="install-button" type="button" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v3h14v-3"/></svg>
+            Орнату
+          </button>
+          <button id="helpButton" class="icon-button" type="button" aria-label="Қолдану нұсқаулығы" aria-controls="helpPanel" aria-expanded="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.9 9a2.2 2.2 0 1 1 3.4 1.9c-.9.6-1.3 1-1.3 2.1M12 16.7h.01"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <main id="top">
+        <section class="hero" aria-labelledby="pageTitle">
+          <div class="hero-copy">
+            <p class="eyebrow"><span class="live-dot"></span> Қазақша оқу көмекшісі</p>
+            <h1 id="pageTitle">Әр сөз — алға<br />бір қадам.</h1>
+            <p class="hero-text">Мәтінді енгізіңіз, дауыстап оқыңыз. Қосымша оқу уақытын, сөз санын және жуық дәлдікті бірден есептейді.</p>
+          </div>
+          <div class="hero-visual" aria-hidden="true">
+            <div class="orbit orbit-one"></div>
+            <div class="orbit orbit-two"></div>
+            <div class="meter-bubble">
+              <svg class="meter-ring" viewBox="0 0 160 160"><circle cx="80" cy="80" r="68"/><circle class="meter-progress" cx="80" cy="80" r="68"/></svg>
+              <div class="meter-content"><strong>86</strong><span>сөз / мин</span></div>
+            </div>
+            <span class="floating-word word-one">оқу</span>
+            <span class="floating-word word-two">сенім</span>
+            <span class="floating-word word-three">өсу</span>
+          </div>
+        </section>
+
+        <section id="helpPanel" class="help-panel" hidden aria-label="Қолдану жолы">
+          <div><span>1</span><p><strong>Мәтінді енгізіңіз.</strong><br />Оқушы оқитын мәтінді көшіріп қойыңыз.</p></div>
+          <div><span>2</span><p><strong>«Бастау» басыңыз.</strong><br />Микрофонға рұқсат беріп, анық оқыңыз.</p></div>
+          <div><span>3</span><p><strong>Нәтижені сақтаңыз.</strong><br />Сөз/минут пен сәйкестікті бақылаңыз.</p></div>
+        </section>
+
+        <section class="workspace" aria-label="Оқуды өлшеу">
+          <article class="card reading-card">
+            <div class="card-heading">
+              <div>
+                <p class="step-label">01 · ОҚУ МӘТІНІ</p>
+                <h2>Оқылатын мәтін</h2>
+              </div>
+              <button id="sampleButton" class="text-button" type="button">Үлгі мәтін</button>
+            </div>
+            <div class="textarea-wrap">
+              <textarea id="sourceText" rows="9" maxlength="5000" placeholder="Мысалы: Көктем келді. Далаға жылы леп тарады..."></textarea>
+              <span id="sourceCount" class="word-count">0 сөз</span>
+            </div>
+            <p class="field-hint">Тыныс белгілері есепке алынбайды. Бір сөз бірнеше рет кездессе, әрқайсысы жеке саналады.</p>
+          </article>
+
+          <article class="card session-card">
+            <div class="card-heading session-heading">
+              <div>
+                <p class="step-label">02 · ОҚУ СЕАНСЫ</p>
+                <h2>Дауыстап оқу</h2>
+              </div>
+              <span id="recognitionBadge" class="status-badge checking"><i></i>Тексерілуде</span>
+            </div>
+
+            <div class="timer-zone">
+              <div class="timer-ring" id="timerRing">
+                <svg viewBox="0 0 180 180" aria-hidden="true"><circle class="timer-track" cx="90" cy="90" r="79"/><circle id="timerProgress" class="timer-progress" cx="90" cy="90" r="79"/></svg>
+                <div class="timer-copy">
+                  <span id="timerDisplay">00:00</span>
+                  <small id="timerLabel">Дайын</small>
+                </div>
+              </div>
+              <div class="session-actions">
+                <button id="startButton" class="primary-button" type="button">
+                  <span class="button-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V7a3 3 0 0 0-3-3Z"/><path d="M6 11.5v.5a6 6 0 0 0 12 0v-.5M12 18v3M9 21h6"/></svg></span>
+                  <span><strong>Бастау</strong><small>Микрофонды қосу</small></span>
+                </button>
+                <button id="stopButton" class="stop-button" type="button" disabled>
+                  <span></span> Тоқтату
+                </button>
+              </div>
+            </div>
+
+            <div id="notice" class="notice" role="status" aria-live="polite">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8v4m0 4h.01"/><circle cx="12" cy="12" r="9"/></svg>
+              <span>«Бастау» түймесін басқанда браузер микрофонға рұқсат сұрайды.</span>
+            </div>
+
+            <div class="transcript-block">
+              <div class="subheading-row">
+                <label for="transcriptText">Танылған мәтін</label>
+                <span id="listeningLabel" class="listening-label" hidden><i></i> Тыңдап тұр</span>
+              </div>
+              <textarea id="transcriptText" rows="5" maxlength="5000" placeholder="Танылған сөздер осы жерде пайда болады. Қажет болса, қолмен түзете аласыз."></textarea>
+              <p id="interimText" class="interim-text" aria-live="polite"></p>
+            </div>
+          </article>
+        </section>
+
+        <section class="results-section" aria-labelledby="resultsTitle">
+          <div class="section-heading">
+            <div>
+              <p class="step-label">03 · НӘТИЖЕ</p>
+              <h2 id="resultsTitle">Оқу көрсеткіштері</h2>
+            </div>
+            <span class="approx-tag">жуық есеп</span>
+          </div>
+
+          <div class="metric-grid">
+            <article class="metric-card metric-primary">
+              <div class="metric-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17a8 8 0 1 1 16 0"/><path d="m12 13 4-4M7 17h10"/></svg></div>
+              <div><strong id="wpmMetric">0</strong><span>сөз / минут</span></div>
+              <small id="paceMessage">Нәтиже оқу басталғанда шығады</small>
+            </article>
+            <article class="metric-card">
+              <div class="metric-icon light"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3V4Z"/><path d="M8 4v16M11 8h5M11 12h5"/></svg></div>
+              <div><strong id="wordMetric">0</strong><span>оқылған сөз</span></div>
+              <small id="targetMetric">Мәтінде 0 сөз</small>
+            </article>
+            <article class="metric-card">
+              <div class="metric-icon light"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z"/><path d="M12 7v5l3 2"/></svg></div>
+              <div><strong id="timeMetric">00:00</strong><span>оқу уақыты</span></div>
+              <small>Таза сеанс ұзақтығы</small>
+            </article>
+            <article class="metric-card">
+              <div class="metric-icon light"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 13 4 4L19 7"/></svg></div>
+              <div><strong id="accuracyMetric">—</strong><span>мәтінге сәйкестік</span></div>
+              <small id="matchMetric">Салыстыруға мәтін керек</small>
+            </article>
+          </div>
+
+          <article class="card comparison-card">
+            <div class="card-heading">
+              <div>
+                <h3>Мәтінмен салыстыру</h3>
+                <p>Түстер автоматты тану нәтижесіне сүйенеді</p>
+              </div>
+              <div class="legend" aria-label="Түс белгісі">
+                <span><i class="match"></i>дұрыс</span><span><i class="error"></i>қате</span><span><i class="miss"></i>өткізілді</span>
+              </div>
+            </div>
+            <div id="comparisonText" class="comparison-text empty-state">Оқу мәтіні мен танылған сөздер болғанда салыстыру осы жерде көрінеді.</div>
+            <div class="comparison-summary">
+              <div><span class="summary-dot error"></span><strong id="errorMetric">0</strong><small>қате/артық сөз</small></div>
+              <div><span class="summary-dot miss"></span><strong id="omissionMetric">0</strong><small>өткізілген сөз</small></div>
+              <p>Бұл — дыбыс тану нәтижесіне негізделген жуық баға. Мұғалім тексеруімен бірдей емес.</p>
+            </div>
+          </article>
+
+          <div class="save-row">
+            <button id="saveButton" class="save-button" type="button" disabled>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h12l2 2v14H5V4Z"/><path d="M8 4v6h8V4M8 20v-6h8v6"/></svg>
+              Нәтижені сақтау
+            </button>
+            <p>Нәтиже осы құрылғыда ғана сақталады.</p>
+          </div>
+        </section>
+
+        <section class="history-section" aria-labelledby="historyTitle">
+          <div class="section-heading history-heading">
+            <div>
+              <p class="step-label">САҚТАЛҒАНДАР</p>
+              <h2 id="historyTitle">Соңғы нәтижелер</h2>
+            </div>
+            <button id="clearHistoryButton" class="text-button danger" type="button" hidden>Барлығын өшіру</button>
+          </div>
+          <div id="historyList" class="history-list"></div>
+        </section>
+
+        <section class="support-card" aria-labelledby="supportTitle">
+          <div class="support-title">
+            <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7v5l3 2M16 3h5v5"/></svg></span>
+            <div><p class="step-label">БРАУЗЕР МҮМКІНДІГІ</p><h2 id="supportTitle">Құрылғыңыздағы қолдау</h2></div>
+          </div>
+          <div class="support-grid">
+            <div><span id="apiSupportIcon" class="support-icon">?</span><p><strong>Сөйлеуді тану API</strong><small id="apiSupportText">Тексеріліп жатыр</small></p></div>
+            <div><span id="secureSupportIcon" class="support-icon">?</span><p><strong>Қауіпсіз қосылым</strong><small id="secureSupportText">Тексеріліп жатыр</small></p></div>
+            <div><span id="networkSupportIcon" class="support-icon">?</span><p><strong>Интернет</strong><small id="networkSupportText">Тексеріліп жатыр</small></p></div>
+          </div>
+          <div class="limits-note">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8v4m0 4h.01"/><circle cx="12" cy="12" r="9"/></svg>
+            <div>
+              <strong>kk-KZ туралы маңызды ескерту</strong>
+              <p>Қосымша браузерге қазақ тілін (<code>kk-KZ</code>) сұратады, бірақ тілді нақты тану сапасы құрылғыға, операциялық жүйеге және браузер қызметіне байланысты. Android-та Chrome, iPhone/iPad-та Safari қолданып көріңіз. iPhone-да Siri қосулы болуы мүмкін. Кей браузерде дыбыс тану бұлтта орындалады және интернетсіз жұмыс істемейді.</p>
+            </div>
+          </div>
+          <details>
+            <summary>Құпиялық және шектеулер</summary>
+            <div class="details-content">
+              <p><strong>Аудио файл сақталмайды.</strong> Қосымша микрофон дыбысын жазып алмайды. Дегенмен, браузердің сөйлеуді тану қызметі аудионы өңдеу үшін өз серверіне жіберуі мүмкін.</p>
+              <p><strong>Дәлдік кепілденбейді.</strong> Шу, баланың дауысы, диалект, сирек сөздер және интернет сапасы нәтижеге әсер етеді. Қате саны — педагогикалық қорытынды емес.</p>
+              <p><strong>Рұқсат қажет.</strong> Микрофон HTTPS арқылы ашылған бетте және қолданушы рұқсат бергенде ғана жұмыс істейді. Қолдау болмаса, танылған мәтінді қолмен енгізіп, есептеуді қолдана аласыз.</p>
+            </div>
+          </details>
+        </section>
+      </main>
+
+      <footer>
+        <div class="brand footer-brand"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 44 44"><path d="M9 10.5c5.1 0 9.4 1.8 13 5.1 3.6-3.3 7.9-5.1 13-5.1v23c-5.1 0-9.4 1.7-13 5-3.6-3.3-7.9-5-13-5v-23Z"/><path d="M22 15.6v22.5"/></svg></span><span>Оқу қарқыны</span></div>
+        <p>Оқушының өз қарқынын байқауына арналған көмекші құрал.</p>
+      </footer>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="app.js" defer></script>
+  </body>
+</html>
