@@ -1,5 +1,5 @@
-const CACHE = "oqy-qarqyny-v3";
-const ASSETS = ["./", "./index.html", "./styles.css", "./app.js?v=3", "./manifest.webmanifest", "./icons/icon.svg"];
+const CACHE = "oqy-qarqyny-v4";
+const ASSETS = ["./", "./index.html", "./styles.css?v=4", "./texts-data.js?v=4", "./app.js?v=4", "./manifest.webmanifest", "./icons/icon.svg"];
 
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));
