@@ -15,6 +15,7 @@
   --shadow: 0 14px 50px rgba(23, 63, 58, 0.08);
   --radius: 24px;
 }
+*[hidden] { display: none !important; }
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
@@ -71,6 +72,33 @@ h1 { margin: 0; max-width: 670px; font-size: clamp(54px, 7vw, 92px); line-height
 .help-panel span { flex: 0 0 28px; height: 28px; display: grid; place-items: center; color: #fff; background: var(--coral); border-radius: 50%; font-size: 12px; font-weight: 800; }
 .help-panel p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
 .help-panel strong { color: var(--ink); }
+.choice-section { margin: 6px 0 32px; padding: 34px; border: 1px solid var(--line); border-radius: 28px; background: rgba(255,253,247,.94); box-shadow: var(--shadow); }
+.choice-heading { max-width: 690px; }
+.choice-heading h2 { margin: 0; font-size: clamp(30px, 4vw, 46px); letter-spacing: -.045em; }
+.choice-heading > p:last-child { margin: 12px 0 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.mode-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 16px; margin-top: 28px; }
+.mode-button { min-height: 132px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 17px; padding: 23px; border: 1px solid var(--line); border-radius: 21px; color: var(--ink); background: #fffefa; cursor: pointer; text-align: left; transition: transform .18s, border-color .18s, box-shadow .18s; }
+.mode-button:hover, .mode-button:focus-visible { transform: translateY(-3px); border-color: var(--sage); box-shadow: 0 15px 32px rgba(23,63,58,.12); outline: 0; }
+.mode-button.ready { color: #fff; border-color: var(--ink); background: var(--ink); }
+.mode-button .mode-icon { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 16px; background: var(--sage-light); font-size: 25px; }
+.mode-button.ready .mode-icon { background: rgba(255,255,255,.13); }
+.mode-button > span:nth-child(2) { display: grid; gap: 7px; }
+.mode-button strong { font-size: 17px; }
+.mode-button small { color: var(--muted); font-size: 11px; }
+.mode-button.ready small { color: rgba(255,255,255,.66); }
+.mode-button b { font-size: 24px; font-weight: 500; }
+.grade-section { position: relative; }
+.grade-section > .back-button { position: absolute; top: 22px; right: 26px; }
+.grade-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 13px; margin-top: 28px; }
+.grade-button { min-height: 112px; display: grid; place-content: center; gap: 7px; border: 1px solid var(--line); border-radius: 19px; color: var(--ink); background: #fffefa; cursor: pointer; transition: transform .18s, background .18s, color .18s; }
+.grade-button:hover, .grade-button:focus-visible { color: #fff; background: var(--coral); transform: translateY(-3px); outline: 0; }
+.grade-button strong { font-size: 18px; }
+.grade-button span { color: var(--muted); font-size: 11px; font-weight: 700; }
+.grade-button:hover span, .grade-button:focus-visible span { color: rgba(255,255,255,.75); }
+.back-button { padding: 8px 0; color: var(--coral-deep); border-bottom: 1px solid currentColor; font-size: 12px; font-weight: 800; cursor: pointer; }
+.active-mode-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 2px 14px; }
+.active-mode-bar span { color: var(--muted); font-size: 11px; font-weight: 700; text-align: right; }
+.reading-card.ready-text #sourceText { background: #f8f6ef; }
 .workspace { display: grid; grid-template-columns: .9fr 1.1fr; gap: 24px; align-items: stretch; }
 .card { background: rgba(255,253,247,.92); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
 .reading-card, .session-card { padding: 30px; }
@@ -204,6 +232,7 @@ footer p { color: var(--muted); font-size: 10px; }
   .workspace { grid-template-columns: 1fr; }
   .reading-card, .session-card { padding: 26px; }
   .metric-grid { grid-template-columns: repeat(2,1fr); }
+  .grade-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
 }
 
 @media (max-width: 650px) {
@@ -216,6 +245,14 @@ footer p { color: var(--muted); font-size: 10px; }
   .hero-text { margin-top: 21px; font-size: 14px; line-height: 1.7; }
   .hero-visual { display: none; }
   .help-panel { grid-template-columns: 1fr; margin-top: 0; }
+  .choice-section { padding: 23px 20px; border-radius: 22px; }
+  .mode-grid { grid-template-columns: 1fr; }
+  .mode-button { min-height: 112px; padding: 18px; }
+  .grade-section > .back-button { position: static; margin-bottom: 22px; }
+  .grade-grid { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 9px; }
+  .grade-button { min-height: 96px; }
+  .active-mode-bar { align-items: flex-start; flex-direction: column; }
+  .active-mode-bar span { text-align: left; }
   .workspace { gap: 14px; }
   .card { border-radius: 20px; }
   .reading-card, .session-card { padding: 21px; }
