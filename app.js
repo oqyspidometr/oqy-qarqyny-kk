@@ -3,6 +3,20 @@
 
   const $ = selector => document.querySelector(selector);
   const elements = {
+    modeChooser: $("#modeChooser"),
+    readyText: $("#readyTextButton"),
+    customText: $("#customTextButton"),
+    gradeChooser: $("#gradeChooser"),
+    gradeBack: $("#gradeBackButton"),
+    gradeButtons: [...document.querySelectorAll(".grade-button")],
+    activeModeBar: $("#activeModeBar"),
+    changeMode: $("#changeModeButton"),
+    selectedMode: $("#selectedModeText"),
+    workspace: $("#readerWorkspace"),
+    resultsSection: $("#resultsSection"),
+    historySection: $("#historySection"),
+    supportSection: $("#supportSection"),
+    readingCard: $(".reading-card"),
     source: $("#sourceText"),
     sourceCount: $("#sourceCount"),
     sample: $("#sampleButton"),
@@ -45,7 +59,8 @@
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const STORAGE_KEY = "oqy-qarqyny-results-v1";
   const TIMER_CIRCUMFERENCE = 496;
-  const sampleText = "Көктемнің шуақты күні еді. Ауыл сыртындағы өзен сылдырап ағып жатты. Балалар жасыл алаңға жиналып, асық ойнады. Аспанда ақ бұлттар баяу көшіп барады. Табиғаттың әсем көрінісі бәріне қуаныш сыйлады.";
+  const SESSION_DURATION_MS = 60_000;
+  const readingTexts = window.READING_TEXTS || {};
 
   let recognition = null;
   let timerId = null;
@@ -57,6 +72,8 @@
   const recognitionInterimResults = new Map();
   let deferredInstall = null;
   let toastTimer = null;
+  let selectedGrade = null;
+  const lastTextIndex = new Map();
 
   function normalizeWord(word) {
     return word.toLocaleLowerCase("kk-KZ").replace(/[’'`]/g, "").replace(/[^\p{L}\p{N}-]/gu, "");
@@ -107,6 +124,12 @@
     return `${String(minutes).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
   }
 
+  function formatCountdown(ms) {
+    const seconds = Math.max(0, Math.ceil(ms / 1000));
+    const minutes = Math.floor(seconds / 60);
+    return `${String(minutes).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+  }
+
   function currentElapsed() {
     return wantsListening && startedAt ? elapsedMs + (Date.now() - startedAt) : elapsedMs;
   }
@@ -125,12 +148,13 @@
   }
 
   function updateTimer() {
-    const ms = currentElapsed();
-    elements.timerDisplay.textContent = formatTime(ms);
+    const ms = Math.min(currentElapsed(), SESSION_DURATION_MS);
+    const remaining = Math.max(0, SESSION_DURATION_MS - ms);
+    elements.timerDisplay.textContent = formatCountdown(remaining);
     elements.time.textContent = formatTime(ms);
-    const secondsInMinute = (ms / 1000) % 60;
-    elements.timerProgress.style.strokeDashoffset = String(TIMER_CIRCUMFERENCE * (1 - secondsInMinute / 60));
+    elements.timerProgress.style.strokeDashoffset = String(TIMER_CIRCUMFERENCE * (1 - remaining / SESSION_DURATION_MS));
     updateMetrics(false);
+    if (wantsListening && remaining <= 0) finishSession(true);
   }
 
   function alignWords(sourceTokens, spokenTokens) {
@@ -267,12 +291,94 @@
     return { sourceTokens, spokenTokens, readWordCount, duration, wpm, accuracy, alignment };
   }
 
+  function resetSessionView() {
+    if (wantsListening) finishSession(false, false);
+    elapsedMs = 0;
+    startedAt = 0;
+    finalTranscript = "";
+    resetRecognitionResults();
+    elements.transcript.value = "";
+    elements.interim.textContent = "";
+    elements.resultsSection.hidden = true;
+    elements.timerDisplay.textContent = "01:00";
+    elements.time.textContent = "00:00";
+    elements.timerProgress.style.strokeDashoffset = "0";
+    setNotice("«Бастау» түймесін басқанда браузер микрофонға рұқсат сұрайды.");
+    updateControls(false);
+    updateMetrics();
+  }
+
+  function showReader() {
+    elements.modeChooser.hidden = true;
+    elements.gradeChooser.hidden = true;
+    elements.activeModeBar.hidden = false;
+    elements.workspace.hidden = false;
+    elements.historySection.hidden = false;
+    elements.supportSection.hidden = false;
+    elements.resultsSection.hidden = true;
+    resetSessionView();
+    elements.workspace.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function showModeChooser() {
+    if (wantsListening) finishSession(false, false);
+    elements.modeChooser.hidden = false;
+    elements.gradeChooser.hidden = true;
+    elements.activeModeBar.hidden = true;
+    elements.workspace.hidden = true;
+    elements.resultsSection.hidden = true;
+    elements.historySection.hidden = true;
+    elements.supportSection.hidden = true;
+    selectedGrade = null;
+    elements.source.value = "";
+    elements.source.readOnly = false;
+    elements.sample.hidden = true;
+    elements.readingCard.classList.remove("ready-text");
+    resetSessionView();
+    elements.modeChooser.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function chooseRandomText(grade) {
+    const entries = readingTexts[String(grade)] || [];
+    if (!entries.length) {
+      toast("Бұл сыныптың мәтіндері табылмады");
+      return;
+    }
+
+    let index = Math.floor(Math.random() * entries.length);
+    const previous = lastTextIndex.get(grade);
+    if (entries.length > 1 && index === previous) index = (index + 1 + Math.floor(Math.random() * (entries.length - 1))) % entries.length;
+    lastTextIndex.set(grade, index);
+
+    const entry = entries[index];
+    selectedGrade = Number(grade);
+    elements.source.value = entry.text;
+    elements.source.readOnly = true;
+    elements.sample.hidden = false;
+    elements.sample.textContent = "Басқа мәтін";
+    elements.readingCard.classList.add("ready-text");
+    elements.selectedMode.textContent = `${grade}-сынып · «${entry.title}» · ${tokenize(entry.text).length} сөз`;
+    showReader();
+    toast(`${grade}-сынып мәтіні таңдалды`);
+  }
+
+  function chooseCustomText() {
+    selectedGrade = null;
+    elements.source.value = "";
+    elements.source.readOnly = false;
+    elements.sample.hidden = true;
+    elements.readingCard.classList.remove("ready-text");
+    elements.selectedMode.textContent = "Өз мәтініңізді енгізу режимі";
+    showReader();
+    window.setTimeout(() => elements.source.focus(), 350);
+  }
+
   function updateControls(active) {
     elements.start.disabled = active;
     elements.stop.disabled = !active;
     elements.source.disabled = active;
     elements.listening.hidden = !active;
-    elements.timerLabel.textContent = active ? "Оқып жатыр" : elapsedMs > 0 ? "Аяқталды" : "Дайын";
+    elements.timerLabel.textContent = active ? "Қалған уақыт" : elapsedMs > 0 ? "Аяқталды" : "Дайын";
   }
 
   function stopTimer() {
@@ -371,7 +477,11 @@
 
   async function startSession() {
     if (wantsListening) return;
-    if (!elements.source.value.trim()) toast("Алдымен оқылатын мәтінді енгізген дұрыс");
+    if (!elements.source.value.trim()) {
+      toast("Алдымен оқылатын мәтінді енгізіңіз");
+      elements.source.focus();
+      return;
+    }
 
     finalTranscript = "";
     resetRecognitionResults();
@@ -380,6 +490,8 @@
     elapsedMs = 0;
     startedAt = Date.now();
     wantsListening = true;
+    elements.resultsSection.hidden = true;
+    elements.timerProgress.style.strokeDashoffset = "0";
     updateControls(true);
     updateTimer();
     timerId = window.setInterval(updateTimer, 250);
@@ -403,10 +515,15 @@
     }
   }
 
-  function stopSession() {
-    if (!wantsListening) return;
+  function finishSession(automatic = false, revealResults = true) {
+    if (!wantsListening && !startedAt) return;
     wantsListening = false;
-    stopTimer();
+    if (startedAt) {
+      elapsedMs = Math.min(SESSION_DURATION_MS, elapsedMs + (Date.now() - startedAt));
+      startedAt = 0;
+    }
+    window.clearInterval(timerId);
+    timerId = null;
     updateControls(false);
     elements.interim.textContent = "";
     if (recognition) {
@@ -415,8 +532,19 @@
     recognition = null;
     finalTranscript = elements.transcript.value.trim();
     resetRecognitionResults();
-    setNotice("Сеанс аяқталды. Нәтижені қарап, қажет болса танылған мәтінді түзетіңіз.", "success");
+    updateTimer();
+    setNotice(automatic
+      ? "Бір минут аяқталды. Нәтиже төменде көрсетілді."
+      : "Сеанс тоқтатылды. Нәтижені қарап, қажет болса танылған мәтінді түзетіңіз.", "success");
     updateMetrics();
+    if (revealResults) {
+      elements.resultsSection.hidden = false;
+      window.setTimeout(() => elements.resultsSection.scrollIntoView({ behavior: "smooth", block: "start" }), 120);
+    }
+  }
+
+  function stopSession() {
+    finishSession(false, true);
   }
 
   function getHistory() {
@@ -550,6 +678,19 @@
   }
 
   function registerEvents() {
+    elements.readyText.addEventListener("click", () => {
+      elements.modeChooser.hidden = true;
+      elements.gradeChooser.hidden = false;
+      elements.gradeChooser.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    elements.customText.addEventListener("click", chooseCustomText);
+    elements.gradeBack.addEventListener("click", () => {
+      elements.gradeChooser.hidden = true;
+      elements.modeChooser.hidden = false;
+      elements.modeChooser.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    elements.gradeButtons.forEach(button => button.addEventListener("click", () => chooseRandomText(button.dataset.grade)));
+    elements.changeMode.addEventListener("click", showModeChooser);
     elements.source.addEventListener("input", () => updateMetrics());
     elements.transcript.addEventListener("input", () => {
       if (!wantsListening) {
@@ -559,9 +700,7 @@
       updateMetrics();
     });
     elements.sample.addEventListener("click", () => {
-      elements.source.value = sampleText;
-      updateMetrics();
-      toast("Үлгі мәтін қойылды");
+      if (selectedGrade) chooseRandomText(selectedGrade);
     });
     elements.start.addEventListener("click", startSession);
     elements.stop.addEventListener("click", stopSession);
@@ -611,6 +750,8 @@
     updateMetrics();
     detectSupport();
     updateControls(false);
+    elements.timerDisplay.textContent = "01:00";
+    elements.timerProgress.style.strokeDashoffset = "0";
   }
 
   // Small read-only surface used by automated QA; it does not alter saved user data.
