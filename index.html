@@ -14,7 +14,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=4" />
     <title>Оқу қарқыны — қазақша оқу жылдамдығы</title>
   </head>
   <body>
@@ -42,7 +42,7 @@
           <div class="hero-copy">
             <p class="eyebrow"><span class="live-dot"></span> Қазақша оқу көмекшісі</p>
             <h1 id="pageTitle">Әр сөз — алға<br />бір қадам.</h1>
-            <p class="hero-text">Мәтінді енгізіңіз, дауыстап оқыңыз. Қосымша оқу уақытын, сөз санын және жуық дәлдікті бірден есептейді.</p>
+            <p class="hero-text">Дайын сынып мәтінін таңдаңыз немесе өз мәтініңізді енгізіңіз. Бір минут оқып, сөз саны мен жуық дәлдікті бірден көріңіз.</p>
           </div>
           <div class="hero-visual" aria-hidden="true">
             <div class="orbit orbit-one"></div>
@@ -58,19 +58,59 @@
         </section>
 
         <section id="helpPanel" class="help-panel" hidden aria-label="Қолдану жолы">
-          <div><span>1</span><p><strong>Мәтінді енгізіңіз.</strong><br />Оқушы оқитын мәтінді көшіріп қойыңыз.</p></div>
+          <div><span>1</span><p><strong>Мәтінді таңдаңыз.</strong><br />Сыныпқа сай дайын мәтінді алыңыз немесе өз мәтініңізді енгізіңіз.</p></div>
           <div><span>2</span><p><strong>«Бастау» басыңыз.</strong><br />Микрофонға рұқсат беріп, анық оқыңыз.</p></div>
           <div><span>3</span><p><strong>Нәтижені сақтаңыз.</strong><br />Сөз/минут пен сәйкестікті бақылаңыз.</p></div>
         </section>
 
-        <section class="workspace" aria-label="Оқуды өлшеу">
+        <section id="modeChooser" class="choice-section" aria-labelledby="modeTitle">
+          <div class="choice-heading">
+            <p class="step-label">МӘТІНДІ ҚАЛАЙ АЛАМЫЗ?</p>
+            <h2 id="modeTitle">Оқу тәсілін таңдаңыз</h2>
+            <p>Оқушыға ыңғайлы екі нұсқаның бірін басыңыз.</p>
+          </div>
+          <div class="mode-grid">
+            <button id="readyTextButton" class="mode-button ready" type="button">
+              <span class="mode-icon" aria-hidden="true">📚</span>
+              <span><strong>Дайын мәтін таңдау</strong><small>1–4 сыныпқа арналған 40 мәтін</small></span>
+              <b aria-hidden="true">→</b>
+            </button>
+            <button id="customTextButton" class="mode-button custom" type="button">
+              <span class="mode-icon" aria-hidden="true">✍️</span>
+              <span><strong>Мәтінді өзім енгіземін</strong><small>Кез келген қазақша мәтінді қою</small></span>
+              <b aria-hidden="true">→</b>
+            </button>
+          </div>
+        </section>
+
+        <section id="gradeChooser" class="choice-section grade-section" hidden aria-labelledby="gradeTitle">
+          <button id="gradeBackButton" class="back-button" type="button">← Артқа</button>
+          <div class="choice-heading">
+            <p class="step-label">ДАЙЫН МӘТІНДЕР</p>
+            <h2 id="gradeTitle">Сыныпты таңдаңыз</h2>
+            <p>Әр басқанда осы сыныптағы 10 мәтіннің бірі кездейсоқ ашылады.</p>
+          </div>
+          <div class="grade-grid">
+            <button class="grade-button" type="button" data-grade="1"><strong>1-сынып</strong><span>50–54 сөз</span></button>
+            <button class="grade-button" type="button" data-grade="2"><strong>2-сынып</strong><span>70–75 сөз</span></button>
+            <button class="grade-button" type="button" data-grade="3"><strong>3-сынып</strong><span>100–125 сөз</span></button>
+            <button class="grade-button" type="button" data-grade="4"><strong>4-сынып</strong><span>150–175 сөз</span></button>
+          </div>
+        </section>
+
+        <div id="activeModeBar" class="active-mode-bar" hidden>
+          <button id="changeModeButton" class="back-button" type="button">← Басқа тәсіл таңдау</button>
+          <span id="selectedModeText"></span>
+        </div>
+
+        <section id="readerWorkspace" class="workspace" aria-label="Оқуды өлшеу" hidden>
           <article class="card reading-card">
             <div class="card-heading">
               <div>
                 <p class="step-label">01 · ОҚУ МӘТІНІ</p>
                 <h2>Оқылатын мәтін</h2>
               </div>
-              <button id="sampleButton" class="text-button" type="button">Үлгі мәтін</button>
+              <button id="sampleButton" class="text-button" type="button" hidden>Басқа мәтін</button>
             </div>
             <div class="textarea-wrap">
               <textarea id="sourceText" rows="9" maxlength="5000" placeholder="Мысалы: Көктем келді. Далаға жылы леп тарады..."></textarea>
@@ -92,7 +132,7 @@
               <div class="timer-ring" id="timerRing">
                 <svg viewBox="0 0 180 180" aria-hidden="true"><circle class="timer-track" cx="90" cy="90" r="79"/><circle id="timerProgress" class="timer-progress" cx="90" cy="90" r="79"/></svg>
                 <div class="timer-copy">
-                  <span id="timerDisplay">00:00</span>
+                  <span id="timerDisplay">01:00</span>
                   <small id="timerLabel">Дайын</small>
                 </div>
               </div>
@@ -123,7 +163,7 @@
           </article>
         </section>
 
-        <section class="results-section" aria-labelledby="resultsTitle">
+        <section id="resultsSection" class="results-section" aria-labelledby="resultsTitle" hidden>
           <div class="section-heading">
             <div>
               <p class="step-label">03 · НӘТИЖЕ</p>
@@ -182,7 +222,7 @@
           </div>
         </section>
 
-        <section class="history-section" aria-labelledby="historyTitle">
+        <section id="historySection" class="history-section" aria-labelledby="historyTitle" hidden>
           <div class="section-heading history-heading">
             <div>
               <p class="step-label">САҚТАЛҒАНДАР</p>
@@ -193,7 +233,7 @@
           <div id="historyList" class="history-list"></div>
         </section>
 
-        <section class="support-card" aria-labelledby="supportTitle">
+        <section id="supportSection" class="support-card" aria-labelledby="supportTitle" hidden>
           <div class="support-title">
             <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7v5l3 2M16 3h5v5"/></svg></span>
             <div><p class="step-label">БРАУЗЕР МҮМКІНДІГІ</p><h2 id="supportTitle">Құрылғыңыздағы қолдау</h2></div>
@@ -228,6 +268,7 @@
     </div>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <script src="app.js?v=3" defer></script>
+    <script src="texts-data.js?v=4" defer></script>
+    <script src="app.js?v=4" defer></script>
   </body>
 </html>
