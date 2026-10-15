@@ -53,6 +53,8 @@
   let elapsedMs = 0;
   let wantsListening = false;
   let finalTranscript = "";
+  const recognitionFinalResults = new Map();
+  const recognitionInterimResults = new Map();
   let deferredInstall = null;
   let toastTimer = null;
 
@@ -63,6 +65,40 @@
   function tokenize(text) {
     const matches = String(text || "").match(/[\p{L}\p{N}]+(?:[-’'][\p{L}\p{N}]+)*/gu) || [];
     return matches.map(original => ({ original, normalized: normalizeWord(original) })).filter(item => item.normalized);
+  }
+
+  function orderedRecognitionText(results) {
+    return [...results.entries()]
+      .sort(([left], [right]) => left - right)
+      .map(([, value]) => value)
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+  }
+
+  function appendWithoutRepeatedOverlap(base, next) {
+    const baseTokens = tokenize(base);
+    const nextTokens = tokenize(next);
+    if (!baseTokens.length) return nextTokens.map(token => token.original).join(" ");
+    if (!nextTokens.length) return baseTokens.map(token => token.original).join(" ");
+
+    let overlap = 0;
+    const maximum = Math.min(baseTokens.length, nextTokens.length);
+    for (let size = maximum; size > 0; size -= 1) {
+      const start = baseTokens.length - size;
+      const same = nextTokens.slice(0, size).every((token, index) => token.normalized === baseTokens[start + index].normalized);
+      if (same) {
+        overlap = size;
+        break;
+      }
+    }
+
+    return [...baseTokens, ...nextTokens.slice(overlap)].map(token => token.original).join(" ");
+  }
+
+  function resetRecognitionResults() {
+    recognitionFinalResults.clear();
+    recognitionInterimResults.clear();
   }
 
   function formatTime(ms) {
@@ -202,25 +238,33 @@
     const sourceTokens = tokenize(elements.source.value);
     const spokenTokens = tokenize(elements.transcript.value);
     const duration = currentElapsed();
-    const minutes = duration / 60000;
-    const wpm = spokenTokens.length && minutes > 0 ? Math.round(spokenTokens.length / minutes) : 0;
     const alignment = alignWords(sourceTokens, spokenTokens);
-    const comparableTotal = Math.max(sourceTokens.length, spokenTokens.length, 1);
-    const accuracy = sourceTokens.length && spokenTokens.length ? Math.max(0, Math.round((alignment.matches / comparableTotal) * 100)) : null;
+    // Reading progress is bounded by the assigned text. Extra recognition output
+    // remains visible as an error, but cannot inflate the read-word or WPM metrics.
+    const readWordCount = sourceTokens.length
+      ? Math.min(sourceTokens.length, alignment.matches + alignment.substitutions)
+      : spokenTokens.length;
+    const minutes = duration / 60000;
+    const wpm = readWordCount && minutes > 0 ? Math.round(readWordCount / minutes) : 0;
+    // Match percentage answers “how much of the assigned text matched?”. Extra
+    // words are reported separately and no longer distort this percentage.
+    const accuracy = sourceTokens.length && spokenTokens.length
+      ? Math.max(0, Math.round((alignment.matches / sourceTokens.length) * 100))
+      : null;
 
     elements.sourceCount.textContent = `${sourceTokens.length} сөз`;
     elements.target.textContent = `Мәтінде ${sourceTokens.length} сөз`;
-    elements.words.textContent = String(spokenTokens.length);
+    elements.words.textContent = String(readWordCount);
     elements.wpm.textContent = String(wpm);
-    elements.pace.textContent = paceMessage(wpm, spokenTokens.length);
+    elements.pace.textContent = paceMessage(wpm, readWordCount);
     elements.accuracy.textContent = accuracy === null ? "—" : `${accuracy}%`;
     elements.match.textContent = accuracy === null ? "Салыстыруға екі мәтін де керек" : `${alignment.matches} сөз дәл сәйкесті`;
     elements.errors.textContent = String(alignment.substitutions + alignment.additions);
     elements.omissions.textContent = String(alignment.omissions);
-    elements.save.disabled = spokenTokens.length === 0 || duration < 1000;
+    elements.save.disabled = readWordCount === 0 || duration < 1000;
 
     if (render) renderComparison(alignment, sourceTokens.length > 0, spokenTokens.length > 0);
-    return { sourceTokens, spokenTokens, duration, wpm, accuracy, alignment };
+    return { sourceTokens, spokenTokens, readWordCount, duration, wpm, accuracy, alignment };
   }
 
   function updateControls(active) {
@@ -264,19 +308,26 @@
     instance.maxAlternatives = 1;
 
     instance.onstart = () => {
+      resetRecognitionResults();
       elements.interim.textContent = "";
       setNotice("Микрофон қосылды. Мәтінді қалыпты дауыспен оқи беріңіз.", "success");
     };
 
     instance.onresult = event => {
-      let interim = "";
-      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+      // Rebuild the current recognition run from indexed results. Some mobile
+      // implementations resend old final results with resultIndex = 0; appending
+      // them caused the same short text to be counted hundreds of times.
+      resetRecognitionResults();
+      for (let i = 0; i < event.results.length; i += 1) {
         const piece = event.results[i][0].transcript.trim();
         if (!piece) continue;
-        if (event.results[i].isFinal) finalTranscript = `${finalTranscript} ${piece}`.trim();
-        else interim = `${interim} ${piece}`.trim();
+        if (event.results[i].isFinal) recognitionFinalResults.set(i, piece);
+        else recognitionInterimResults.set(i, piece);
       }
-      elements.transcript.value = `${finalTranscript}${interim ? ` ${interim}` : ""}`.trim();
+      const sessionFinal = orderedRecognitionText(recognitionFinalResults);
+      const interim = orderedRecognitionText(recognitionInterimResults);
+      const confirmed = appendWithoutRepeatedOverlap(finalTranscript, sessionFinal);
+      elements.transcript.value = appendWithoutRepeatedOverlap(confirmed, interim);
       elements.interim.textContent = interim ? `Анықталуда: ${interim}` : "";
       updateMetrics();
     };
@@ -295,6 +346,11 @@
     };
 
     instance.onend = () => {
+      const sessionFinal = orderedRecognitionText(recognitionFinalResults);
+      if (sessionFinal) finalTranscript = appendWithoutRepeatedOverlap(finalTranscript, sessionFinal);
+      resetRecognitionResults();
+      elements.transcript.value = finalTranscript;
+      updateMetrics();
       if (!wantsListening) return;
       window.setTimeout(() => {
         if (!wantsListening) return;
@@ -318,6 +374,7 @@
     if (!elements.source.value.trim()) toast("Алдымен оқылатын мәтінді енгізген дұрыс");
 
     finalTranscript = "";
+    resetRecognitionResults();
     elements.transcript.value = "";
     elements.interim.textContent = "";
     elapsedMs = 0;
@@ -357,6 +414,7 @@
     }
     recognition = null;
     finalTranscript = elements.transcript.value.trim();
+    resetRecognitionResults();
     setNotice("Сеанс аяқталды. Нәтижені қарап, қажет болса танылған мәтінді түзетіңіз.", "success");
     updateMetrics();
   }
@@ -445,7 +503,7 @@
       createdAt: new Date().toISOString(),
       durationMs: Math.round(metrics.duration),
       wpm: metrics.wpm,
-      words: metrics.spokenTokens.length,
+      words: metrics.readWordCount,
       accuracy: metrics.accuracy,
       errors: metrics.alignment.substitutions + metrics.alignment.additions,
       omissions: metrics.alignment.omissions,
@@ -494,7 +552,10 @@
   function registerEvents() {
     elements.source.addEventListener("input", () => updateMetrics());
     elements.transcript.addEventListener("input", () => {
-      if (!wantsListening) finalTranscript = elements.transcript.value.trim();
+      if (!wantsListening) {
+        finalTranscript = elements.transcript.value.trim();
+        resetRecognitionResults();
+      }
       updateMetrics();
     });
     elements.sample.addEventListener("click", () => {
@@ -553,6 +614,6 @@
   }
 
   // Small read-only surface used by automated QA; it does not alter saved user data.
-  window.__oqyQarqyny = { tokenize, alignWords, updateMetrics };
+  window.__oqyQarqyny = { tokenize, alignWords, appendWithoutRepeatedOverlap, updateMetrics };
   init();
 })();
