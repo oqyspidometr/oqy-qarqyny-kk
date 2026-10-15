@@ -1,0 +1,19 @@
+{
+  "name": "Оқу қарқыны",
+  "short_name": "Оқу қарқыны",
+  "description": "Қазақша дауыстап оқу жылдамдығын өлшейтін құрал",
+  "lang": "kk-KZ",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f2e8",
+  "theme_color": "#173f3a",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
