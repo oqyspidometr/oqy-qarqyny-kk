@@ -227,7 +227,73 @@
     return { operations, matches, substitutions, omissions, additions };
   }
 
-  function renderComparison(alignment, hasSource, hasSpoken) {
+  function summarizeReadingProgress(sourceTokens, spokenTokens, alignment) {
+    if (!sourceTokens.length) {
+      return {
+        readWordCount: spokenTokens.length,
+        lastSourceIndex: -1,
+        lastWord: spokenTokens.at(-1)?.original || null,
+        matches: spokenTokens.length,
+        substitutions: 0,
+        omissions: 0,
+        additions: 0
+      };
+    }
+
+    let sourceIndex = -1;
+    const matchedIndices = [];
+    alignment.operations.forEach(operation => {
+      if (operation.source) sourceIndex += 1;
+      if (operation.type === "match") matchedIndices.push(sourceIndex);
+    });
+
+    // The endpoint is anchored to words that were actually recognized in the
+    // source text. Substitutions and duplicated recognition fragments must not
+    // push progress to the end of the assigned text.
+    const clusteredMatches = matchedIndices.filter((index, position) => {
+      const previous = matchedIndices[position - 1];
+      const next = matchedIndices[position + 1];
+      return (Number.isInteger(previous) && index - previous <= 3)
+        || (Number.isInteger(next) && next - index <= 3);
+    });
+    const lastSourceIndex = clusteredMatches.at(-1) ?? matchedIndices.at(-1) ?? -1;
+
+    if (lastSourceIndex < 0) {
+      return { readWordCount: 0, lastSourceIndex: -1, lastWord: null, matches: 0, substitutions: 0, omissions: sourceTokens.length, additions: 0 };
+    }
+
+    let matches = 0;
+    let substitutions = 0;
+    let omissions = 0;
+    let additions = 0;
+    sourceIndex = -1;
+    alignment.operations.forEach(operation => {
+      if (operation.source) sourceIndex += 1;
+      if (operation.type === "addition") {
+        if (sourceIndex < lastSourceIndex) additions += 1;
+        return;
+      }
+      if (sourceIndex > lastSourceIndex) {
+        omissions += 1;
+        return;
+      }
+      if (operation.type === "match") matches += 1;
+      else if (operation.type === "substitution") substitutions += 1;
+      else if (operation.type === "omission") omissions += 1;
+    });
+
+    return {
+      readWordCount: lastSourceIndex + 1,
+      lastSourceIndex,
+      lastWord: sourceTokens[lastSourceIndex]?.original || null,
+      matches,
+      substitutions,
+      omissions,
+      additions
+    };
+  }
+
+  function renderComparison(alignment, hasSource, hasSpoken, lastSourceIndex = -1) {
     elements.comparison.textContent = "";
     if (!hasSource || !hasSpoken) {
       elements.comparison.className = "comparison-text empty-state";
@@ -237,13 +303,16 @@
 
     elements.comparison.className = "comparison-text";
     const fragment = document.createDocumentFragment();
+    let sourceIndex = -1;
     alignment.operations.forEach(operation => {
       if (operation.type === "addition") return;
+      sourceIndex += 1;
+      const displayedType = sourceIndex > lastSourceIndex ? "omission" : operation.type;
       const span = document.createElement("span");
-      span.className = `word-token ${operation.type === "substitution" ? "error" : operation.type}`;
+      span.className = `word-token ${displayedType === "substitution" ? "error" : displayedType}`;
       span.textContent = operation.source.original;
-      if (operation.type === "substitution") span.title = `Танылғаны: ${operation.spoken.original}`;
-      if (operation.type === "omission") span.title = "Өткізілген болуы мүмкін";
+      if (displayedType === "substitution") span.title = `Танылғаны: ${operation.spoken.original}`;
+      if (displayedType === "omission") span.title = sourceIndex > lastSourceIndex ? "Осы сөзге дейін оқылмады" : "Өткізілген болуы мүмкін";
       fragment.appendChild(span);
       fragment.appendChild(document.createTextNode(" "));
     });
@@ -263,32 +332,29 @@
     const spokenTokens = tokenize(elements.transcript.value);
     const duration = currentElapsed();
     const alignment = alignWords(sourceTokens, spokenTokens);
-    // Reading progress is bounded by the assigned text. Extra recognition output
-    // remains visible as an error, but cannot inflate the read-word or WPM metrics.
-    const readWordCount = sourceTokens.length
-      ? Math.min(sourceTokens.length, alignment.matches + alignment.substitutions)
-      : spokenTokens.length;
+    const progress = summarizeReadingProgress(sourceTokens, spokenTokens, alignment);
+    const readWordCount = progress.readWordCount;
     const minutes = duration / 60000;
     const wpm = readWordCount && minutes > 0 ? Math.round(readWordCount / minutes) : 0;
-    // Match percentage answers “how much of the assigned text matched?”. Extra
-    // words are reported separately and no longer distort this percentage.
-    const accuracy = sourceTokens.length && spokenTokens.length
-      ? Math.max(0, Math.round((alignment.matches / sourceTokens.length) * 100))
+    const accuracy = readWordCount && spokenTokens.length
+      ? Math.max(0, Math.round((progress.matches / readWordCount) * 100))
       : null;
 
     elements.sourceCount.textContent = `${sourceTokens.length} сөз`;
-    elements.target.textContent = `Мәтінде ${sourceTokens.length} сөз`;
+    elements.target.textContent = progress.lastWord
+      ? `Соңғысы: «${progress.lastWord}» · мәтінде ${sourceTokens.length} сөз`
+      : `Мәтінде ${sourceTokens.length} сөз`;
     elements.words.textContent = String(readWordCount);
     elements.wpm.textContent = String(wpm);
     elements.pace.textContent = paceMessage(wpm, readWordCount);
     elements.accuracy.textContent = accuracy === null ? "—" : `${accuracy}%`;
-    elements.match.textContent = accuracy === null ? "Салыстыруға екі мәтін де керек" : `${alignment.matches} сөз дәл сәйкесті`;
-    elements.errors.textContent = String(alignment.substitutions + alignment.additions);
-    elements.omissions.textContent = String(alignment.omissions);
+    elements.match.textContent = accuracy === null ? "Салыстыруға екі мәтін де керек" : `${progress.matches} сөз дәл сәйкесті`;
+    elements.errors.textContent = String(progress.substitutions + progress.additions);
+    elements.omissions.textContent = String(progress.omissions);
     elements.save.disabled = readWordCount === 0 || duration < 1000;
 
-    if (render) renderComparison(alignment, sourceTokens.length > 0, spokenTokens.length > 0);
-    return { sourceTokens, spokenTokens, readWordCount, duration, wpm, accuracy, alignment };
+    if (render) renderComparison(alignment, sourceTokens.length > 0, spokenTokens.length > 0, progress.lastSourceIndex);
+    return { sourceTokens, spokenTokens, readWordCount, duration, wpm, accuracy, alignment, progress };
   }
 
   function resetSessionView() {
@@ -633,8 +699,9 @@
       wpm: metrics.wpm,
       words: metrics.readWordCount,
       accuracy: metrics.accuracy,
-      errors: metrics.alignment.substitutions + metrics.alignment.additions,
-      omissions: metrics.alignment.omissions,
+      errors: metrics.progress.substitutions + metrics.progress.additions,
+      omissions: metrics.progress.omissions,
+      lastWord: metrics.progress.lastWord,
       sourceExcerpt: elements.source.value.trim().slice(0, 85),
       source: elements.source.value.trim(),
       transcript: elements.transcript.value.trim()
@@ -755,6 +822,6 @@
   }
 
   // Small read-only surface used by automated QA; it does not alter saved user data.
-  window.__oqyQarqyny = { tokenize, alignWords, appendWithoutRepeatedOverlap, updateMetrics };
+  window.__oqyQarqyny = { tokenize, alignWords, summarizeReadingProgress, appendWithoutRepeatedOverlap, updateMetrics };
   init();
 })();
