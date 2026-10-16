@@ -196,12 +196,25 @@
       }
     }
 
+    // Compare the transcript with the best matching prefix of the source.
+    // A full-text alignment can incorrectly attach an early repeated word to
+    // the same word near the end and make a partial reading look complete.
+    let bestPrefixLength = 0;
+    let bestPrefixCost = costs[m];
+    for (let sourceLength = 1; sourceLength <= n; sourceLength += 1) {
+      const prefixCost = costs[sourceLength * width + m];
+      if (prefixCost < bestPrefixCost) {
+        bestPrefixCost = prefixCost;
+        bestPrefixLength = sourceLength;
+      }
+    }
+
     const operations = [];
     let matches = 0;
     let substitutions = 0;
     let omissions = 0;
     let additions = 0;
-    let i = n;
+    let i = bestPrefixLength;
     let j = m;
     while (i > 0 || j > 0) {
       const direction = directions[i * width + j];
@@ -224,6 +237,10 @@
     }
 
     operations.reverse();
+    for (let sourceIndex = bestPrefixLength; sourceIndex < n; sourceIndex += 1) {
+      operations.push({ type: "omission", source: sourceTokens[sourceIndex], spoken: null });
+      omissions += 1;
+    }
     return { operations, matches, substitutions, omissions, additions };
   }
 
