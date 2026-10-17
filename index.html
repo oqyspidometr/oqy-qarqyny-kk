@@ -14,7 +14,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=4" />
+    <link rel="stylesheet" href="styles.css?v=7" />
     <title>Оқу қарқыны — қазақша оқу жылдамдығы</title>
   </head>
   <body>
@@ -42,7 +42,7 @@
           <div class="hero-copy">
             <p class="eyebrow"><span class="live-dot"></span> Қазақша оқу көмекшісі</p>
             <h1 id="pageTitle">Әр сөз — алға<br />бір қадам.</h1>
-            <p class="hero-text">Дайын сынып мәтінін таңдаңыз немесе өз мәтініңізді енгізіңіз. Бір минут оқып, сөз саны мен жуық дәлдікті бірден көріңіз.</p>
+            <p class="hero-text">Дайын сынып мәтінін таңдаңыз немесе өз мәтініңізді енгізіңіз. Автоматты тануды не соңғы сөзді қолмен белгілеуді таңдап, бір минуттық нәтижені көріңіз.</p>
           </div>
           <div class="hero-visual" aria-hidden="true">
             <div class="orbit orbit-one"></div>
@@ -59,8 +59,8 @@
 
         <section id="helpPanel" class="help-panel" hidden aria-label="Қолдану жолы">
           <div><span>1</span><p><strong>Мәтінді таңдаңыз.</strong><br />Сыныпқа сай дайын мәтінді алыңыз немесе өз мәтініңізді енгізіңіз.</p></div>
-          <div><span>2</span><p><strong>«Бастау» басыңыз.</strong><br />Микрофонға рұқсат беріп, анық оқыңыз.</p></div>
-          <div><span>3</span><p><strong>Нәтижені сақтаңыз.</strong><br />Сөз/минут пен сәйкестікті бақылаңыз.</p></div>
+          <div><span>2</span><p><strong>Есептеу тәсілін таңдаңыз.</strong><br />Автоматты тануды немесе соңғы сөзді қолмен белгілеуді қолданыңыз.</p></div>
+          <div><span>3</span><p><strong>«Бастау» басыңыз.</strong><br />Бір минуттан кейін нәтижені қарап, сақтаңыз.</p></div>
         </section>
 
         <section id="modeChooser" class="choice-section" aria-labelledby="modeTitle">
@@ -128,6 +128,17 @@
               <span id="recognitionBadge" class="status-badge checking"><i></i>Тексерілуде</span>
             </div>
 
+            <div class="reading-mode-switch" role="group" aria-label="Есептеу тәсілі">
+              <button id="automaticModeButton" class="reading-mode-button active" type="button" aria-pressed="true">
+                <span aria-hidden="true">🎙️</span>
+                <span><strong>Автоматты тану</strong><small>Микрофон арқылы</small></span>
+              </button>
+              <button id="manualModeButton" class="reading-mode-button" type="button" aria-pressed="false">
+                <span aria-hidden="true">☝️</span>
+                <span><strong>Соңғы сөзді қолмен белгілеу</strong><small>Safari және PWA үшін</small></span>
+              </button>
+            </div>
+
             <div class="timer-zone">
               <div class="timer-ring" id="timerRing">
                 <svg viewBox="0 0 180 180" aria-hidden="true"><circle class="timer-track" cx="90" cy="90" r="79"/><circle id="timerProgress" class="timer-progress" cx="90" cy="90" r="79"/></svg>
@@ -139,7 +150,7 @@
               <div class="session-actions">
                 <button id="startButton" class="primary-button" type="button">
                   <span class="button-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V7a3 3 0 0 0-3-3Z"/><path d="M6 11.5v.5a6 6 0 0 0 12 0v-.5M12 18v3M9 21h6"/></svg></span>
-                  <span><strong>Бастау</strong><small>Микрофонды қосу</small></span>
+                  <span><strong id="startButtonTitle">Бастау</strong><small id="startButtonHint">Микрофонды қосу</small></span>
                 </button>
                 <button id="stopButton" class="stop-button" type="button" disabled>
                   <span></span> Тоқтату
@@ -152,7 +163,16 @@
               <span>«Бастау» түймесін басқанда браузер микрофонға рұқсат сұрайды.</span>
             </div>
 
-            <div class="transcript-block">
+            <div id="manualPicker" class="manual-picker" hidden>
+              <div class="manual-picker-heading">
+                <p class="step-label">СОҢҒЫ ОҚЫЛҒАН СӨЗ</p>
+                <h3>Оқушы тоқтаған сөзді басыңыз</h3>
+                <p>Сайт мәтіннің басынан таңдалған сөзге дейін санайды. Таңдауды қайта басып өзгертуге болады.</p>
+              </div>
+              <div id="manualWords" class="manual-words" aria-label="Соңғы оқылған сөзді таңдау"></div>
+            </div>
+
+            <div id="transcriptBlock" class="transcript-block">
               <div class="subheading-row">
                 <label for="transcriptText">Танылған мәтін</label>
                 <span id="listeningLabel" class="listening-label" hidden><i></i> Тыңдап тұр</span>
@@ -169,7 +189,7 @@
               <p class="step-label">03 · НӘТИЖЕ</p>
               <h2 id="resultsTitle">Оқу көрсеткіштері</h2>
             </div>
-            <span class="approx-tag">жуық есеп</span>
+            <span id="resultModeTag" class="approx-tag">жуық есеп</span>
           </div>
 
           <div class="metric-grid">
@@ -199,7 +219,7 @@
             <div class="card-heading">
               <div>
                 <h3>Мәтінмен салыстыру</h3>
-                <p>Түстер автоматты тану нәтижесіне сүйенеді</p>
+                <p id="comparisonDescription">Түстер автоматты тану нәтижесіне сүйенеді</p>
               </div>
               <div class="legend" aria-label="Түс белгісі">
                 <span><i class="match"></i>дұрыс</span><span><i class="error"></i>қате</span><span><i class="miss"></i>өткізілді</span>
@@ -209,7 +229,7 @@
             <div class="comparison-summary">
               <div><span class="summary-dot error"></span><strong id="errorMetric">0</strong><small>қате/артық сөз</small></div>
               <div><span class="summary-dot miss"></span><strong id="omissionMetric">0</strong><small>өткізілген сөз</small></div>
-              <p>Бұл — дыбыс тану нәтижесіне негізделген жуық баға. Мұғалім тексеруімен бірдей емес.</p>
+              <p id="comparisonFootnote">Бұл — дыбыс тану нәтижесіне негізделген жуық баға. Мұғалім тексеруімен бірдей емес.</p>
             </div>
           </article>
 
@@ -247,7 +267,7 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8v4m0 4h.01"/><circle cx="12" cy="12" r="9"/></svg>
             <div>
               <strong>kk-KZ туралы маңызды ескерту</strong>
-              <p>Қосымша браузерге қазақ тілін (<code>kk-KZ</code>) сұратады, бірақ тілді нақты тану сапасы құрылғыға, операциялық жүйеге және браузер қызметіне байланысты. Android-та Chrome, iPhone/iPad-та Safari қолданып көріңіз. iPhone-да Siri қосулы болуы мүмкін. Кей браузерде дыбыс тану бұлтта орындалады және интернетсіз жұмыс істемейді.</p>
+              <p>Қосымша браузерге қазақ тілін (<code>kk-KZ</code>) сұратады, бірақ тілді нақты тану сапасы құрылғыға, операциялық жүйеге және браузер қызметіне байланысты. iPhone немесе орнатылған PWA тануға рұқсат бермесе, «Соңғы сөзді қолмен белгілеу» режимін таңдаңыз.</p>
             </div>
           </div>
           <details>
@@ -269,6 +289,6 @@
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <script src="texts-data.js?v=4" defer></script>
-    <script src="app.js?v=6" defer></script>
+    <script src="app.js?v=7" defer></script>
   </body>
 </html>
