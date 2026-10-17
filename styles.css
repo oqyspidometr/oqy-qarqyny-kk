@@ -115,6 +115,15 @@ textarea:focus { border-color: var(--sage); box-shadow: 0 0 0 4px rgba(155,194,1
 .status-badge.supported i { background: #4c9c6f; }
 .status-badge.unsupported { color: #9c3f32; background: #f9e8e3; }
 .status-badge.unsupported i { background: var(--red); }
+.reading-mode-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 22px; padding: 6px; border: 1px solid var(--line); border-radius: 18px; background: #f1efe7; }
+.reading-mode-button { min-height: 72px; display: flex; align-items: center; gap: 10px; padding: 11px 13px; border: 1px solid transparent; border-radius: 13px; color: var(--muted); background: transparent; cursor: pointer; text-align: left; transition: background .18s, color .18s, border-color .18s, box-shadow .18s; }
+.reading-mode-button > span:first-child { width: 34px; height: 34px; flex: 0 0 34px; display: grid; place-items: center; border-radius: 10px; background: rgba(255,255,255,.7); font-size: 17px; }
+.reading-mode-button > span:last-child { display: grid; gap: 3px; }
+.reading-mode-button strong { color: inherit; font-size: 11px; line-height: 1.35; }
+.reading-mode-button small { color: inherit; opacity: .72; font-size: 9px; line-height: 1.3; }
+.reading-mode-button.active { color: var(--ink); border-color: rgba(23,63,58,.12); background: #fffefa; box-shadow: 0 6px 16px rgba(23,63,58,.07); }
+.reading-mode-button:focus-visible { outline: 3px solid rgba(233,120,89,.28); outline-offset: 2px; }
+.reading-mode-button:disabled { cursor: not-allowed; opacity: .55; }
 .timer-zone { display: grid; grid-template-columns: 180px 1fr; align-items: center; gap: 30px; margin: 22px 0; }
 .timer-ring { position: relative; width: 180px; height: 180px; }
 .timer-ring svg { width: 100%; transform: rotate(-90deg); }
@@ -140,6 +149,14 @@ textarea:focus { border-color: var(--sage); box-shadow: 0 0 0 4px rgba(155,194,1
 .notice.error { color: #863d32; background: #f9e7e3; }
 .notice.success { color: #276646; background: #e3f2e6; }
 .notice svg { flex: 0 0 18px; width: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.manual-picker { margin-top: 21px; padding: 18px; border: 1px solid rgba(23,63,58,.12); border-radius: 17px; background: #f7f4eb; }
+.manual-picker-heading h3 { margin: 3px 0 5px; font-size: 17px; letter-spacing: -.025em; }
+.manual-picker-heading > p:last-child { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.55; }
+.manual-words { max-height: 300px; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 7px; margin-top: 15px; padding: 14px; overflow: auto; border: 1px solid #dedbcf; border-radius: 14px; background: #fffefa; }
+.manual-word { min-height: 34px; padding: 6px 9px; border: 1px solid #d9d7cd; border-radius: 9px; color: var(--ink-deep); background: #fff; cursor: pointer; font: inherit; font-size: 12px; line-height: 1.2; transition: transform .12s, color .12s, background .12s, border-color .12s; }
+.manual-word:hover, .manual-word:focus-visible { border-color: var(--coral); outline: 0; transform: translateY(-1px); }
+.manual-word.read { color: #285f43; border-color: #b9d4bd; background: #e8f3e7; }
+.manual-word.selected { color: #fff; border-color: var(--coral); background: var(--coral); box-shadow: 0 5px 12px rgba(233,120,89,.22); }
 .transcript-block { margin-top: 21px; }
 .subheading-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .subheading-row label { font-size: 12px; font-weight: 800; }
@@ -257,6 +274,8 @@ footer p { color: var(--muted); font-size: 10px; }
   .card-heading h2 { font-size: 21px; }
   #sourceText { min-height: 220px; }
   .session-heading { align-items: center; }
+  .reading-mode-switch { grid-template-columns: 1fr; }
+  .reading-mode-button { min-height: 62px; }
   .timer-zone { grid-template-columns: 1fr; justify-items: center; gap: 18px; }
   .session-actions { width: 100%; }
   .primary-button { justify-content: center; }
@@ -269,6 +288,8 @@ footer p { color: var(--muted); font-size: 10px; }
   .comparison-card .card-heading { display: block; }
   .legend { justify-content: flex-start; margin-top: 13px; }
   .comparison-text { padding: 17px; }
+  .manual-picker { padding: 15px; }
+  .manual-words { max-height: 270px; padding: 11px; gap: 6px; }
   .comparison-summary { grid-template-columns: auto auto; }
   .comparison-summary p { grid-column: 1 / -1; justify-self: start; text-align: left; }
   .save-row { align-items: flex-end; flex-direction: column; }
