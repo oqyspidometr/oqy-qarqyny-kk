@@ -20,9 +20,16 @@
     source: $("#sourceText"),
     sourceCount: $("#sourceCount"),
     sample: $("#sampleButton"),
+    automaticMode: $("#automaticModeButton"),
+    manualMode: $("#manualModeButton"),
     transcript: $("#transcriptText"),
+    transcriptBlock: $("#transcriptBlock"),
+    manualPicker: $("#manualPicker"),
+    manualWords: $("#manualWords"),
     interim: $("#interimText"),
     start: $("#startButton"),
+    startTitle: $("#startButtonTitle"),
+    startHint: $("#startButtonHint"),
     stop: $("#stopButton"),
     save: $("#saveButton"),
     timerDisplay: $("#timerDisplay"),
@@ -42,6 +49,9 @@
     errors: $("#errorMetric"),
     omissions: $("#omissionMetric"),
     comparison: $("#comparisonText"),
+    comparisonDescription: $("#comparisonDescription"),
+    comparisonFootnote: $("#comparisonFootnote"),
+    resultModeTag: $("#resultModeTag"),
     history: $("#historyList"),
     clearHistory: $("#clearHistoryButton"),
     toast: $("#toast"),
@@ -73,6 +83,9 @@
   let deferredInstall = null;
   let toastTimer = null;
   let selectedGrade = null;
+  let readingMode = "automatic";
+  let manualSelectedIndex = -1;
+  let manualPickerReady = false;
   const lastTextIndex = new Map();
 
   function normalizeWord(word) {
@@ -145,6 +158,89 @@
     elements.toast.textContent = message;
     elements.toast.classList.add("show");
     toastTimer = window.setTimeout(() => elements.toast.classList.remove("show"), 2600);
+  }
+
+  function isIosStandalone() {
+    const isiOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const standalone = navigator.standalone === true || window.matchMedia?.("(display-mode: standalone)").matches;
+    return isiOS && standalone;
+  }
+
+  function defaultModeNotice() {
+    return readingMode === "manual"
+      ? "Бұл режимде микрофон қажет емес. Бір минуттан кейін оқушы тоқтаған соңғы сөзді мәтіннен басыңыз."
+      : "«Бастау» түймесін басқанда браузер микрофонға рұқсат сұрайды.";
+  }
+
+  function updateRecognitionBadge() {
+    if (readingMode === "manual") {
+      elements.badge.className = "status-badge supported";
+      elements.badge.innerHTML = "<i></i>Қолмен белгілеу";
+      return;
+    }
+    const hasApi = Boolean(SpeechRecognition);
+    elements.badge.className = `status-badge ${hasApi ? "supported" : "unsupported"}`;
+    elements.badge.innerHTML = `<i></i>${hasApi ? "Тану қолдауы бар" : "Тану қолдауы жоқ"}`;
+  }
+
+  function updateModePresentation() {
+    const manual = readingMode === "manual";
+    elements.automaticMode.classList.toggle("active", !manual);
+    elements.manualMode.classList.toggle("active", manual);
+    elements.automaticMode.setAttribute("aria-pressed", String(!manual));
+    elements.manualMode.setAttribute("aria-pressed", String(manual));
+    elements.transcriptBlock.hidden = manual;
+    elements.manualPicker.hidden = !manual || !manualPickerReady;
+    elements.startTitle.textContent = manual ? "Таймерді бастау" : "Бастау";
+    elements.startHint.textContent = manual ? "Микрофон қажет емес" : "Микрофонды қосу";
+    elements.resultModeTag.textContent = manual ? "қолмен есеп" : "жуық есеп";
+    elements.comparisonDescription.textContent = manual
+      ? "Жасыл — оқылған бөлік, сары — таңдалған сөзден кейінгі бөлік"
+      : "Түстер автоматты тану нәтижесіне сүйенеді";
+    elements.comparisonFootnote.textContent = manual
+      ? "Қолмен режим оқу дұрыстығын бағаламайды; ол тек таңдалған соңғы сөзге дейін санайды."
+      : "Бұл — дыбыс тану нәтижесіне негізделген жуық баға. Мұғалім тексеруімен бірдей емес.";
+    updateRecognitionBadge();
+  }
+
+  function renderManualPicker() {
+    elements.manualWords.textContent = "";
+    const sourceTokens = tokenize(elements.source.value);
+    sourceTokens.forEach((token, index) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "manual-word";
+      if (index <= manualSelectedIndex) button.classList.add("read");
+      if (index === manualSelectedIndex) button.classList.add("selected");
+      button.textContent = token.original;
+      button.setAttribute("aria-label", `${index + 1}-сөз: ${token.original}`);
+      button.addEventListener("click", () => selectManualWord(index));
+      elements.manualWords.appendChild(button);
+    });
+  }
+
+  function selectManualWord(index) {
+    if (readingMode !== "manual" || !manualPickerReady) return;
+    const sourceTokens = tokenize(elements.source.value);
+    if (!sourceTokens[index]) return;
+    manualSelectedIndex = index;
+    renderManualPicker();
+    updateMetrics();
+    elements.resultsSection.hidden = false;
+    setNotice(`Соңғы сөз: «${sourceTokens[index].original}». ${index + 1} сөз оқылды.`, "success");
+    window.setTimeout(() => elements.resultsSection.scrollIntoView({ behavior: "smooth", block: "start" }), 120);
+  }
+
+  function setReadingMode(mode, reset = true) {
+    if (wantsListening) return;
+    readingMode = mode === "manual" ? "manual" : "automatic";
+    updateModePresentation();
+    if (reset) resetSessionView();
+    else {
+      setNotice(defaultModeNotice());
+      updateControls(false);
+      updateMetrics();
+    }
   }
 
   function updateTimer() {
@@ -314,7 +410,9 @@
     elements.comparison.textContent = "";
     if (!hasSource || !hasSpoken) {
       elements.comparison.className = "comparison-text empty-state";
-      elements.comparison.textContent = "Оқу мәтіні мен танылған сөздер болғанда салыстыру осы жерде көрінеді.";
+      elements.comparison.textContent = readingMode === "manual"
+        ? "Соңғы оқылған сөз белгіленгеннен кейін мәтіннің оқылған бөлігі осы жерде көрінеді."
+        : "Оқу мәтіні мен танылған сөздер болғанда салыстыру осы жерде көрінеді.";
       return;
     }
 
@@ -346,14 +444,16 @@
 
   function updateMetrics(render = true) {
     const sourceTokens = tokenize(elements.source.value);
-    const spokenTokens = tokenize(elements.transcript.value);
+    const transcriptTokens = tokenize(elements.transcript.value);
+    const manualCount = Math.min(sourceTokens.length, Math.max(0, manualSelectedIndex + 1));
+    const spokenTokens = readingMode === "manual" ? sourceTokens.slice(0, manualCount) : transcriptTokens;
     const duration = currentElapsed();
     const alignment = alignWords(sourceTokens, spokenTokens);
     const progress = summarizeReadingProgress(sourceTokens, spokenTokens, alignment);
     const readWordCount = progress.readWordCount;
     const minutes = duration / 60000;
     const wpm = readWordCount && minutes > 0 ? Math.round(readWordCount / minutes) : 0;
-    const accuracy = readWordCount && spokenTokens.length
+    const accuracy = readingMode === "manual" ? null : readWordCount && spokenTokens.length
       ? Math.max(0, Math.round((progress.matches / readWordCount) * 100))
       : null;
 
@@ -365,13 +465,15 @@
     elements.wpm.textContent = String(wpm);
     elements.pace.textContent = paceMessage(wpm, readWordCount);
     elements.accuracy.textContent = accuracy === null ? "—" : `${accuracy}%`;
-    elements.match.textContent = accuracy === null ? "Салыстыруға екі мәтін де керек" : `${progress.matches} сөз дәл сәйкесті`;
-    elements.errors.textContent = String(progress.substitutions + progress.additions);
+    elements.match.textContent = readingMode === "manual"
+      ? readWordCount ? `${readWordCount} сөз қолмен белгіленді` : "Соңғы сөзді белгілеңіз"
+      : accuracy === null ? "Салыстыруға екі мәтін де керек" : `${progress.matches} сөз дәл сәйкесті`;
+    elements.errors.textContent = String(readingMode === "manual" ? 0 : progress.substitutions + progress.additions);
     elements.omissions.textContent = String(progress.omissions);
     elements.save.disabled = readWordCount === 0 || duration < 1000;
 
     if (render) renderComparison(alignment, sourceTokens.length > 0, spokenTokens.length > 0, progress.lastSourceIndex);
-    return { sourceTokens, spokenTokens, readWordCount, duration, wpm, accuracy, alignment, progress };
+    return { sourceTokens, spokenTokens, readWordCount, duration, wpm, accuracy, alignment, progress, mode: readingMode };
   }
 
   function resetSessionView() {
@@ -379,14 +481,19 @@
     elapsedMs = 0;
     startedAt = 0;
     finalTranscript = "";
+    manualSelectedIndex = -1;
+    manualPickerReady = false;
     resetRecognitionResults();
     elements.transcript.value = "";
     elements.interim.textContent = "";
+    elements.manualPicker.hidden = true;
+    elements.manualWords.textContent = "";
     elements.resultsSection.hidden = true;
     elements.timerDisplay.textContent = "01:00";
     elements.time.textContent = "00:00";
     elements.timerProgress.style.strokeDashoffset = "0";
-    setNotice("«Бастау» түймесін басқанда браузер микрофонға рұқсат сұрайды.");
+    updateModePresentation();
+    setNotice(defaultModeNotice());
     updateControls(false);
     updateMetrics();
   }
@@ -460,7 +567,9 @@
     elements.start.disabled = active;
     elements.stop.disabled = !active;
     elements.source.disabled = active;
-    elements.listening.hidden = !active;
+    elements.automaticMode.disabled = active;
+    elements.manualMode.disabled = active;
+    elements.listening.hidden = !active || readingMode !== "automatic";
     elements.timerLabel.textContent = active ? "Қалған уақыт" : elapsedMs > 0 ? "Аяқталды" : "Дайын";
   }
 
@@ -477,11 +586,11 @@
   function recognitionErrorMessage(error) {
     const messages = {
       "not-allowed": "Микрофонға рұқсат берілмеді. Браузер баптауынан рұқсатты қосып, қайта көріңіз.",
-      "service-not-allowed": "Браузердің сөйлеуді тану қызметіне рұқсат жоқ.",
+      "service-not-allowed": "Safari немесе орнатылған PWA сөйлеуді тануға рұқсат бермеді. «Соңғы сөзді қолмен белгілеу» режимін таңдаңыз.",
       "audio-capture": "Микрофон табылмады немесе оны басқа қолданба пайдаланып тұр.",
       "network": "Сөйлеуді тану қызметімен байланыс үзілді. Интернетті тексеріңіз.",
-      "language-not-supported": "Бұл құрылғының тану қызметі kk-KZ тілін қолдамайды.",
-      "language-unavailable": "Қазақ тілі осы құрылғыда қазір қолжетімсіз.",
+      "language-not-supported": "Бұл құрылғы kk-KZ тілін қолдамайды. «Соңғы сөзді қолмен белгілеу» режимін таңдаңыз.",
+      "language-unavailable": "Қазақ тілі бұл құрылғыда қолжетімсіз. «Соңғы сөзді қолмен белгілеу» режимін таңдаңыз.",
       "no-speech": "Дауыс естілмеді. Микрофонға жақынырақ, анық оқып көріңіз.",
       "aborted": "Тану тоқтатылды."
     };
@@ -567,9 +676,13 @@
     }
 
     finalTranscript = "";
+    manualSelectedIndex = -1;
+    manualPickerReady = false;
     resetRecognitionResults();
     elements.transcript.value = "";
     elements.interim.textContent = "";
+    elements.manualPicker.hidden = true;
+    elements.manualWords.textContent = "";
     elapsedMs = 0;
     startedAt = Date.now();
     wantsListening = true;
@@ -579,8 +692,16 @@
     updateTimer();
     timerId = window.setInterval(updateTimer, 250);
 
+    if (readingMode === "manual") {
+      setNotice("Таймер жүріп жатыр. Оқушы оқи берсін; уақыт біткен соң соңғы оқылған сөзді белгілейсіз.", "success");
+      return;
+    }
+
     if (!SpeechRecognition) {
-      setNotice("Бұл браузер сөйлеуді автоматты танымайды. Таймер жұмыс істейді: оқып болған соң танылған мәтін орнына сөздерді қолмен енгізуге болады.", "error");
+      wantsListening = false;
+      stopTimer();
+      updateControls(false);
+      setNotice("Бұл браузер автоматты тануды қолдамайды. Жоғарыдан «Соңғы сөзді қолмен белгілеу» режимін таңдаңыз.", "error");
       return;
     }
 
@@ -600,6 +721,7 @@
 
   function finishSession(automatic = false, revealResults = true) {
     if (!wantsListening && !startedAt) return;
+    const manual = readingMode === "manual";
     wantsListening = false;
     if (startedAt) {
       elapsedMs = Math.min(SESSION_DURATION_MS, elapsedMs + (Date.now() - startedAt));
@@ -613,9 +735,25 @@
       try { recognition.stop(); } catch (_) { /* already stopped */ }
     }
     recognition = null;
-    finalTranscript = elements.transcript.value.trim();
+    if (!manual) finalTranscript = elements.transcript.value.trim();
     resetRecognitionResults();
     updateTimer();
+
+    if (manual) {
+      manualPickerReady = revealResults;
+      elements.manualPicker.hidden = !revealResults;
+      elements.resultsSection.hidden = true;
+      updateMetrics();
+      if (revealResults) {
+        renderManualPicker();
+        setNotice(automatic
+          ? "Бір минут аяқталды. Оқушы тоқтаған соңғы сөзді төмендегі мәтіннен басыңыз."
+          : "Сеанс тоқтатылды. Оқушы тоқтаған соңғы сөзді төмендегі мәтіннен басыңыз.", "success");
+        window.setTimeout(() => elements.manualPicker.scrollIntoView({ behavior: "smooth", block: "center" }), 120);
+      }
+      return;
+    }
+
     setNotice(automatic
       ? "Бір минут аяқталды. Нәтиже төменде көрсетілді."
       : "Сеанс тоқтатылды. Нәтижені қарап, қажет болса танылған мәтінді түзетіңіз.", "success");
@@ -670,7 +808,8 @@
       const heading = document.createElement("h3");
       heading.textContent = readableDate(item.createdAt);
       const excerpt = document.createElement("p");
-      excerpt.textContent = item.sourceExcerpt || "Мәтінсіз сеанс";
+      const modeLabel = item.mode === "manual" ? "Қолмен белгіленді · " : "";
+      excerpt.textContent = `${modeLabel}${item.sourceExcerpt || "Мәтінсіз сеанс"}`;
       title.append(heading, excerpt);
 
       const stats = [
@@ -719,9 +858,12 @@
       errors: metrics.progress.substitutions + metrics.progress.additions,
       omissions: metrics.progress.omissions,
       lastWord: metrics.progress.lastWord,
+      mode: metrics.mode,
       sourceExcerpt: elements.source.value.trim().slice(0, 85),
       source: elements.source.value.trim(),
-      transcript: elements.transcript.value.trim()
+      transcript: metrics.mode === "manual"
+        ? metrics.spokenTokens.map(token => token.original).join(" ")
+        : elements.transcript.value.trim()
     };
     setHistory([result, ...getHistory()]);
     renderHistory();
@@ -736,9 +878,8 @@
 
   async function detectSupport() {
     const hasApi = Boolean(SpeechRecognition);
-    elements.badge.className = `status-badge ${hasApi ? "supported" : "unsupported"}`;
-    elements.badge.innerHTML = `<i></i>${hasApi ? "Тану қолдауы бар" : "Тану қолдауы жоқ"}`;
-    setSupport(elements.apiIcon, elements.apiText, hasApi, hasApi ? "API бар; kk-KZ сеанста тексеріледі" : "Қолмен енгізу режимі қолжетімді");
+    updateRecognitionBadge();
+    setSupport(elements.apiIcon, elements.apiText, hasApi, hasApi ? "API бар; kk-KZ сеанста тексеріледі" : "Соңғы сөзді қолмен белгілеу режимі қолжетімді");
     setSupport(elements.secureIcon, elements.secureText, window.isSecureContext, window.isSecureContext ? "Қауіпсіз орта — микрофонға рұқсат сұрауға болады" : "HTTPS қажет");
     updateNetworkSupport();
 
@@ -750,9 +891,9 @@
       } catch (_) { /* experimental check unavailable in this implementation */ }
     }
 
-    if (!hasApi) {
+    if (!hasApi && readingMode === "automatic") {
       const isiOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-      setNotice(isiOS ? "Бұл браузерде тану ашылмады. iPhone/iPad құрылғысында Safari арқылы ашып, Siri баптауын тексеріңіз." : "Бұл браузер сөйлеуді автоматты танымайды. Android құрылғысында Chrome арқылы ашып көріңіз немесе мәтінді қолмен енгізіңіз.", "error");
+      setNotice(isiOS ? "Бұл браузерде автоматты тану ашылмады. «Соңғы сөзді қолмен белгілеу» режимін таңдаңыз." : "Бұл браузер автоматты тануды қолдамайды. «Соңғы сөзді қолмен белгілеу» режимін таңдаңыз.", "error");
     }
   }
 
@@ -775,7 +916,17 @@
     });
     elements.gradeButtons.forEach(button => button.addEventListener("click", () => chooseRandomText(button.dataset.grade)));
     elements.changeMode.addEventListener("click", showModeChooser);
-    elements.source.addEventListener("input", () => updateMetrics());
+    elements.automaticMode.addEventListener("click", () => setReadingMode("automatic"));
+    elements.manualMode.addEventListener("click", () => setReadingMode("manual"));
+    elements.source.addEventListener("input", () => {
+      if (readingMode === "manual" && !wantsListening) {
+        manualSelectedIndex = -1;
+        manualPickerReady = false;
+        elements.manualPicker.hidden = true;
+        elements.resultsSection.hidden = true;
+      }
+      updateMetrics();
+    });
     elements.transcript.addEventListener("input", () => {
       if (!wantsListening) {
         finalTranscript = elements.transcript.value.trim();
@@ -830,8 +981,8 @@
   function init() {
     registerEvents();
     registerServiceWorker();
+    setReadingMode(isIosStandalone() || !SpeechRecognition ? "manual" : "automatic", false);
     renderHistory();
-    updateMetrics();
     detectSupport();
     updateControls(false);
     elements.timerDisplay.textContent = "01:00";
@@ -839,6 +990,6 @@
   }
 
   // Small read-only surface used by automated QA; it does not alter saved user data.
-  window.__oqyQarqyny = { tokenize, alignWords, summarizeReadingProgress, appendWithoutRepeatedOverlap, updateMetrics };
+  window.__oqyQarqyny = { tokenize, alignWords, summarizeReadingProgress, appendWithoutRepeatedOverlap, updateMetrics, setReadingMode, selectManualWord };
   init();
 })();
