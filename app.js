@@ -73,6 +73,8 @@
   const readingTexts = window.READING_TEXTS || {};
 
   let recognition = null;
+  let microphoneStream = null;
+  let recognitionRestartTimer = null;
   let timerId = null;
   let startedAt = 0;
   let elapsedMs = 0;
@@ -591,10 +593,37 @@
       "network": "Сөйлеуді тану қызметімен байланыс үзілді. Интернетті тексеріңіз.",
       "language-not-supported": "Бұл құрылғы kk-KZ тілін қолдамайды. «Соңғы сөзді қолмен белгілеу» режимін таңдаңыз.",
       "language-unavailable": "Қазақ тілі бұл құрылғыда қолжетімсіз. «Соңғы сөзді қолмен белгілеу» режимін таңдаңыз.",
-      "no-speech": "Дауыс естілмеді. Микрофонға жақынырақ, анық оқып көріңіз.",
+      "no-speech": "Дауыс үзілісі байқалды. Микрофон ашық, тану автоматты түрде жалғасады.",
       "aborted": "Тану тоқтатылды."
     };
     return messages[error] || `Сөйлеуді тану қатесі: ${error || "белгісіз"}`;
+  }
+
+  function clearRecognitionRestart() {
+    window.clearTimeout(recognitionRestartTimer);
+    recognitionRestartTimer = null;
+  }
+
+  function releaseMicrophoneStream() {
+    if (!microphoneStream) return;
+    microphoneStream.getTracks().forEach(track => track.stop());
+    microphoneStream = null;
+  }
+
+  function scheduleRecognitionRestart(instance, delay = 80) {
+    clearRecognitionRestart();
+    if (!wantsListening || readingMode !== "automatic" || currentElapsed() >= SESSION_DURATION_MS) return;
+    recognitionRestartTimer = window.setTimeout(() => {
+      recognitionRestartTimer = null;
+      if (!wantsListening || recognition !== instance || currentElapsed() >= SESSION_DURATION_MS) return;
+      try {
+        instance.start();
+      } catch (_) {
+        // Mobile browsers can keep the recognizer in a closing state briefly.
+        // Keep retrying while the one-minute reading session is still active.
+        scheduleRecognitionRestart(instance, 220);
+      }
+    }, delay);
   }
 
   function buildRecognition() {
@@ -606,9 +635,10 @@
     instance.maxAlternatives = 1;
 
     instance.onstart = () => {
+      clearRecognitionRestart();
       resetRecognitionResults();
       elements.interim.textContent = "";
-      setNotice("Микрофон қосылды. Мәтінді қалыпты дауыспен оқи беріңіз.", "success");
+      setNotice("Микрофон таймер аяқталғанша қосулы. Мәтінді қалыпты дауыспен оқи беріңіз.", "success");
     };
 
     instance.onresult = event => {
@@ -635,9 +665,12 @@
         setNotice(recognitionErrorMessage(event.error));
         return;
       }
+      if (event.error === "aborted" && !wantsListening) return;
       setNotice(recognitionErrorMessage(event.error), "error");
       if (["not-allowed", "service-not-allowed", "audio-capture", "language-not-supported", "language-unavailable"].includes(event.error)) {
         wantsListening = false;
+        clearRecognitionRestart();
+        releaseMicrophoneStream();
         stopTimer();
         updateControls(false);
       }
@@ -650,21 +683,21 @@
       elements.transcript.value = finalTranscript;
       updateMetrics();
       if (!wantsListening) return;
-      window.setTimeout(() => {
-        if (!wantsListening) return;
-        try { instance.start(); }
-        catch (error) {
-          setNotice("Тану автоматты жалғаспады. «Тоқтату» басып, қайта бастаңыз.", "error");
-        }
-      }, 240);
+      scheduleRecognitionRestart(instance);
     };
     return instance;
   }
 
-  async function requestMicrophonePermission() {
-    if (!navigator.mediaDevices?.getUserMedia) return;
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    stream.getTracks().forEach(track => track.stop());
+  async function keepMicrophoneOpen() {
+    if (!navigator.mediaDevices?.getUserMedia || microphoneStream?.active) return;
+    releaseMicrophoneStream();
+    microphoneStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      }
+    });
   }
 
   async function startSession() {
@@ -672,6 +705,11 @@
     if (!elements.source.value.trim()) {
       toast("Алдымен оқылатын мәтінді енгізіңіз");
       elements.source.focus();
+      return;
+    }
+
+    if (readingMode === "automatic" && !SpeechRecognition) {
+      setNotice("Бұл браузер автоматты тануды қолдамайды. Жоғарыдан «Соңғы сөзді қолмен белгілеу» режимін таңдаңыз.", "error");
       return;
     }
 
@@ -684,34 +722,35 @@
     elements.manualPicker.hidden = true;
     elements.manualWords.textContent = "";
     elapsedMs = 0;
-    startedAt = Date.now();
     wantsListening = true;
     elements.resultsSection.hidden = true;
     elements.timerProgress.style.strokeDashoffset = "0";
     updateControls(true);
-    updateTimer();
-    timerId = window.setInterval(updateTimer, 250);
 
     if (readingMode === "manual") {
+      startedAt = Date.now();
+      updateTimer();
+      timerId = window.setInterval(updateTimer, 250);
       setNotice("Таймер жүріп жатыр. Оқушы оқи берсін; уақыт біткен соң соңғы оқылған сөзді белгілейсіз.", "success");
       return;
     }
 
-    if (!SpeechRecognition) {
-      wantsListening = false;
-      stopTimer();
-      updateControls(false);
-      setNotice("Бұл браузер автоматты тануды қолдамайды. Жоғарыдан «Соңғы сөзді қолмен белгілеу» режимін таңдаңыз.", "error");
-      return;
-    }
-
     try {
-      await requestMicrophonePermission();
-      if (!wantsListening) return;
+      setNotice("Микрофонға қосылып жатыр…");
+      await keepMicrophoneOpen();
+      if (!wantsListening) {
+        releaseMicrophoneStream();
+        return;
+      }
       recognition = buildRecognition();
       recognition.start();
+      startedAt = Date.now();
+      updateTimer();
+      timerId = window.setInterval(updateTimer, 250);
     } catch (error) {
       wantsListening = false;
+      clearRecognitionRestart();
+      releaseMicrophoneStream();
       stopTimer();
       updateControls(false);
       const denied = error?.name === "NotAllowedError" || error?.name === "PermissionDeniedError";
@@ -729,12 +768,14 @@
     }
     window.clearInterval(timerId);
     timerId = null;
+    clearRecognitionRestart();
     updateControls(false);
     elements.interim.textContent = "";
     if (recognition) {
       try { recognition.stop(); } catch (_) { /* already stopped */ }
     }
     recognition = null;
+    releaseMicrophoneStream();
     if (!manual) finalTranscript = elements.transcript.value.trim();
     resetRecognitionResults();
     updateTimer();
@@ -969,7 +1010,9 @@
     window.addEventListener("appinstalled", () => toast("Қосымша құрылғыға орнатылды"));
     window.addEventListener("beforeunload", () => {
       wantsListening = false;
+      clearRecognitionRestart();
       if (recognition) try { recognition.abort(); } catch (_) { /* ignore */ }
+      releaseMicrophoneStream();
     });
   }
 
@@ -993,3 +1036,4 @@
   window.__oqyQarqyny = { tokenize, alignWords, summarizeReadingProgress, appendWithoutRepeatedOverlap, updateMetrics, setReadingMode, selectManualWord };
   init();
 })();
+
