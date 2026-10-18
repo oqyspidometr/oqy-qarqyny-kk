@@ -73,7 +73,6 @@
   const readingTexts = window.READING_TEXTS || {};
 
   let recognition = null;
-  let microphoneStream = null;
   let recognitionRestartTimer = null;
   let timerId = null;
   let startedAt = 0;
@@ -604,12 +603,6 @@
     recognitionRestartTimer = null;
   }
 
-  function releaseMicrophoneStream() {
-    if (!microphoneStream) return;
-    microphoneStream.getTracks().forEach(track => track.stop());
-    microphoneStream = null;
-  }
-
   function scheduleRecognitionRestart(instance, delay = 80) {
     clearRecognitionRestart();
     if (!wantsListening || readingMode !== "automatic" || currentElapsed() >= SESSION_DURATION_MS) return;
@@ -638,7 +631,7 @@
       clearRecognitionRestart();
       resetRecognitionResults();
       elements.interim.textContent = "";
-      setNotice("Микрофон таймер аяқталғанша қосулы. Мәтінді қалыпты дауыспен оқи беріңіз.", "success");
+      setNotice("Микрофон қосылды. Үнсіздіктен кейін тану автоматты түрде жалғасады.", "success");
     };
 
     instance.onresult = event => {
@@ -670,7 +663,6 @@
       if (["not-allowed", "service-not-allowed", "audio-capture", "language-not-supported", "language-unavailable"].includes(event.error)) {
         wantsListening = false;
         clearRecognitionRestart();
-        releaseMicrophoneStream();
         stopTimer();
         updateControls(false);
       }
@@ -688,16 +680,19 @@
     return instance;
   }
 
-  async function keepMicrophoneOpen() {
-    if (!navigator.mediaDevices?.getUserMedia || microphoneStream?.active) return;
-    releaseMicrophoneStream();
-    microphoneStream = await navigator.mediaDevices.getUserMedia({
+  async function requestMicrophonePermission() {
+    if (!navigator.mediaDevices?.getUserMedia) return;
+    const stream = await navigator.mediaDevices.getUserMedia({
       audio: {
         echoCancellation: true,
         noiseSuppression: true,
         autoGainControl: true
       }
     });
+    // Release this permission-check stream before SpeechRecognition starts.
+    // Some Android browsers otherwise give the live stream exclusive access
+    // and the recognizer receives no words, producing a zero result.
+    stream.getTracks().forEach(track => track.stop());
   }
 
   async function startSession() {
@@ -737,11 +732,8 @@
 
     try {
       setNotice("Микрофонға қосылып жатыр…");
-      await keepMicrophoneOpen();
-      if (!wantsListening) {
-        releaseMicrophoneStream();
-        return;
-      }
+      await requestMicrophonePermission();
+      if (!wantsListening) return;
       recognition = buildRecognition();
       recognition.start();
       startedAt = Date.now();
@@ -750,7 +742,6 @@
     } catch (error) {
       wantsListening = false;
       clearRecognitionRestart();
-      releaseMicrophoneStream();
       stopTimer();
       updateControls(false);
       const denied = error?.name === "NotAllowedError" || error?.name === "PermissionDeniedError";
@@ -775,7 +766,6 @@
       try { recognition.stop(); } catch (_) { /* already stopped */ }
     }
     recognition = null;
-    releaseMicrophoneStream();
     if (!manual) finalTranscript = elements.transcript.value.trim();
     resetRecognitionResults();
     updateTimer();
@@ -1012,7 +1002,6 @@
       wantsListening = false;
       clearRecognitionRestart();
       if (recognition) try { recognition.abort(); } catch (_) { /* ignore */ }
-      releaseMicrophoneStream();
     });
   }
 
